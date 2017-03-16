@@ -245,7 +245,7 @@ public class Server extends JFrame implements ActionListener {
     try{
       //parse request line and extract the request_type:
       String RequestLine = RTSPBufferedReader.readLine();
-      //System.out.println("RTSP Server - Received from Client:");
+      System.out.println("RTSP Server - Received from Client:");
       System.out.println(RequestLine);
 
       StringTokenizer tokens = new StringTokenizer(RequestLine);
@@ -306,7 +306,7 @@ public class Server extends JFrame implements ActionListener {
       RTSPBufferedWriter.write("CSeq: "+RTSPSeqNb+CRLF);
       RTSPBufferedWriter.write("Session: "+RTSP_ID+CRLF);
       RTSPBufferedWriter.flush();
-      //System.out.println("RTSP Server - Sent response to Client.");
+      System.out.println("RTSP Server - Sent response to Client.");
     }
     catch(Exception ex)
     {
