@@ -125,14 +125,27 @@ public class Client{
 
     //Establish a TCP connection with the server to exchange RTSP messages
     //------------------
-    theClient.RTSPsocket = new Socket(ServerIPAddr, RTSP_server_port);
+    try{
+      theClient.RTSPsocket = new Socket(ServerIPAddr, RTSP_server_port);
 
-    //Set input and output stream filters:
-    RTSPBufferedReader = new BufferedReader(new InputStreamReader(theClient.RTSPsocket.getInputStream()) );
-    RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(theClient.RTSPsocket.getOutputStream()) );
+      //Set input and output stream filters:
+      RTSPBufferedReader = new BufferedReader(new InputStreamReader(theClient.RTSPsocket.getInputStream()) );
+      RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(theClient.RTSPsocket.getOutputStream()) );
 
-    //init RTSP state:
-    state = INIT;
+      //init RTSP state:
+      state = INIT;
+    } catch (UnknownHostException e) {
+      e.printStackTrace();
+      System.exit(0); 
+    } catch (ConnectException e) {
+      System.out.println("Error in the connection: ");
+      e.printStackTrace();
+      System.exit(0); 
+    }
+    catch (IOException e) {
+      e.printStackTrace();
+      System.exit(0); 
+    }
   }
 
 
