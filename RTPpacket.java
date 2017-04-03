@@ -24,18 +24,20 @@ public class RTPpacket{
   //Bitstream of the RTP payload
   public byte[] payload;
 
-
-
   //--------------------------
   //Constructor of an RTPpacket object from header fields and payload bitstream
   //--------------------------
   public RTPpacket(int PType, int Framenb, int Time, byte[] data, int data_length){
     //fill by default header fields:
+    //Set the RTPversion field (V). You must set this to 2.
     Version = 2;
+    // Set padding (P), extension (X), number of contributing sources (CC), and marker (M) fields. 
+    // These are all set to zero in this lab.
     Padding = 0;
     Extension = 0;
     CC = 0;
     Marker = 0;
+    // Set the source identifier (SSRC). This field identifies the server. You can pick any integer value you like.
     Ssrc = 0;
 
     //fill changing header fields:
@@ -52,9 +54,44 @@ public class RTPpacket{
     //.............
     //fill the header array of byte with RTP header fields
 
-    //header[0] = ...
-    // .....
+    byte[] time_bytes = new byte[4];
+    byte[] ssrc_bytes = new byte[4];
+    byte[] seqn_bytes = new byte[4];
+    time_bytes = int_to_byte_array(TimeStamp);
+   ssrc_bytes = int_to_byte_array(Ssrc);
+   seqn_bytes = int_to_byte_array(SequenceNumber);
 
+   /* 
+    * 0                     1                 2                   3
+    * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    * |V=2|P|X| CC |M| PT | sequence number |
+    * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    * | timestamp |
+    * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    * | synchronization source (SSRC) identifier |
+    * +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+    * | contributing source (CSRC) identifiers |
+    * | .... |
+    * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    * 
+    * */
+    header[0] |= (Version << 6);
+    header[0] |= (Padding << 5);
+    header[0] |= (Extension << 4);
+    header[0] |= (CC);
+    header[1] |= Marker << 7; 
+    header[1] |= PayloadType;
+    header[2] = seqn_bytes[1];
+    header[3] = seqn_bytes[0];
+    header[4] = time_bytes[3];
+    header[5] = time_bytes[2];
+    header[6] = time_bytes[1];
+    header[7] = time_bytes[0];
+    header[8] = ssrc_bytes[3];
+    header[9] = ssrc_bytes[2];
+    header[10] = ssrc_bytes[1];
+    header[11] = ssrc_bytes[0];
 
     //fill the payload bitstream:
     //--------------------------
@@ -62,7 +99,9 @@ public class RTPpacket{
     payload = new byte[data_length];
 
     //fill payload array of byte from data (given in parameter of the constructor)
-    //......
+    for(int i=0;i<payload_size;i++){
+      payload[i]=data[i];
+    }
 
     // ! Do not forget to uncomment method printheader() below !
 
@@ -92,8 +131,9 @@ public class RTPpacket{
       //get the payload bitstream:
       payload_size = packet_size - HEADER_SIZE;
       payload = new byte[payload_size];
-      for (int i=HEADER_SIZE; i < packet_size; i++)
+      for (int i=HEADER_SIZE; i < packet_size; i++){
         payload[i-HEADER_SIZE] = packet[i];
+      }
 
       //interpret the changing fields of the header:
       PayloadType = header[1] & 127;
@@ -168,22 +208,17 @@ public class RTPpacket{
   //--------------------------
   //print headers without the SSRC
   //--------------------------
-  public void printheader()
-  {
-    //TO DO: uncomment
-    /*
-       for (int i=0; i < (HEADER_SIZE-4); i++)
-       {
-       for (int j = 7; j>=0 ; j--)
-       if (((1<<j) & header[i] ) != 0)
-       System.out.print("1");
-       else
-       System.out.print("0");
-       System.out.print(" ");
-       }
+  public void printheader(){
+    for (int i=0; i < (HEADER_SIZE-4); i++){
+      for (int j = 7; j>=0 ; j--)
+        if (((1<<j) & header[i] ) != 0)
+          System.out.print("1");
+        else
+          System.out.print("0");
+      System.out.print(" ");
+    }
 
-       System.out.println();
-       */
+    System.out.println();
   }
 
   //return the unsigned value of 8-bit integer nb
@@ -194,4 +229,14 @@ public class RTPpacket{
       return(256+nb);
   }
 
+  public static byte[] int_to_byte_array(int number){
+    int temp = number;
+    byte[] b=new byte[4];
+    for (int i = b.length - 1; i > -1; i--)
+    {
+      b[i] = new Integer(temp & 0xff).byteValue();
+      temp = temp >> 8;
+    }
+    return b;
+  }
 }

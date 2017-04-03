@@ -117,9 +117,9 @@ public class Client{
     //get server RTSP port and IP address from the command line
     //------------------
     int RTSP_server_port = Integer.parseInt(argv[1]);
+    System.out.println("Server port " + RTSP_server_port );
     String ServerHost = argv[0];
     InetAddress ServerIPAddr = InetAddress.getByName(ServerHost);
-
     //get video filename to request:
     VideoFileName = argv[2];
 
@@ -138,7 +138,7 @@ public class Client{
       e.printStackTrace();
       System.exit(0); 
     } catch (ConnectException e) {
-      System.out.println("Error in the connection: ");
+      System.out.println("Error in the connection to: " + ServerHost + " at port: " + RTSP_server_port );
       e.printStackTrace();
       System.exit(0); 
     }
@@ -418,7 +418,7 @@ public class Client{
        * before an aggregate play request may be sent.
        * */
       if (request_type.equals("SETUP")){
-        RTSPBufferedWriter.write( "Transport: RTP/UDP;unicast;client_port="+RTP_RCV_PORT+CRLF); 
+        RTSPBufferedWriter.write( "Transport: RTP/UDP; client_port= "+RTP_RCV_PORT+CRLF); 
       }
       //otherwise, write the Session line from the RTSPid field
       else{

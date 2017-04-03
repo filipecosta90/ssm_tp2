@@ -201,7 +201,7 @@ public class Server extends JFrame implements ActionListener {
       try {
         //get next frame to send from the video, as well as its size
         int image_length = video.getnextframe(buf);
-
+        System.out.println("Image length " + image_length );
         //Builds an RTPpacket object containing the frame
         RTPpacket rtp_packet = new RTPpacket(MJPEG_TYPE, imagenb, imagenb*FRAME_PERIOD, buf, image_length);
 
@@ -261,8 +261,7 @@ public class Server extends JFrame implements ActionListener {
       else if ((new String(request_type_string)).compareTo("TEARDOWN") == 0)
         request_type = TEARDOWN;
 
-      if (request_type == SETUP)
-      {
+      if (request_type == SETUP){
         //extract VideoFileName from RequestLine
         VideoFileName = tokens.nextToken();
       }
@@ -315,3 +314,4 @@ public class Server extends JFrame implements ActionListener {
     }
   }
 }
+
