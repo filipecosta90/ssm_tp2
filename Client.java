@@ -19,7 +19,9 @@ public class Client{
   JButton setupButton = new JButton("Setup");
   JButton playButton = new JButton("Play");
   JButton pauseButton = new JButton("Pause");
-  JButton tearButton = new JButton("Teardown");
+  JButton tearButton = new JButton("STOP");
+  JButton describeButton = new JButton("Describe");
+
   JPanel mainPanel = new JPanel();
   JPanel buttonPanel = new JPanel();
   JLabel iconLabel = new JLabel();
@@ -37,7 +39,7 @@ public class Client{
 
   Map<Integer, Integer> time_data_tracker;
   Map<Integer, Integer> accum_time_data_tracker;
-    Map<Integer, Double>  time_bits_second_tracker;
+  Map<Integer, Double>  time_bits_second_tracker;
   int accum_packet_length; 
   //RTSP variables
   //----------------
@@ -52,9 +54,11 @@ public class Client{
   static BufferedWriter RTSPBufferedWriter;
   static String VideoFileName; //video file to request to the server
   int RTSPSeqNb = 0; //Sequence number of RTSP messages within the session
-  int RTSPid = 0; //ID of the RTSP session (given by the RTSP Server)
+  String RTSPid = "0"; //ID of the RTSP session (given by the RTSP Server)
 
   final static String CRLF = "\r\n";
+  final static String DES_FNAME = "describe.txt";
+
 
   //Video constants:
   //------------------
@@ -80,14 +84,15 @@ public class Client{
 
     //Buttons
     buttonPanel.setLayout(new GridLayout(1,0));
-    buttonPanel.add(setupButton);
+    buttonPanel.add(describeButton);
     buttonPanel.add(playButton);
     buttonPanel.add(pauseButton);
     buttonPanel.add(tearButton);
-    setupButton.addActionListener(new setupButtonListener());
+    //setupButton.addActionListener(new /setupButtonListener());
     playButton.addActionListener(new playButtonListener());
     pauseButton.addActionListener(new pauseButtonListener());
     tearButton.addActionListener(new tearButtonListener());
+    describeButton.addActionListener(new describeButtonListener());
 
     //Image display label
     iconLabel.setIcon(null);
@@ -113,7 +118,7 @@ public class Client{
     buf = new byte[15000];
     time_data_tracker = new TreeMap<Integer, Integer>();
     accum_time_data_tracker = new TreeMap<Integer, Integer>();
-      time_bits_second_tracker =  new TreeMap<Integer, Double>();
+    time_bits_second_tracker =  new TreeMap<Integer, Double>();
     accum_packet_length = 0; 
 
   }
@@ -217,13 +222,55 @@ public class Client{
     }
   }
 
+
+  public void setupConnection(){
+
+    System.out.println("Setup Button pressed !");
+    if (state == INIT)
+    {
+      //Init non-blocking RTPsocket that will be used to receive data
+      try{
+        //construct a new DatagramSocket to receive RTP packets from the server, on port RTP_RCV_PORT
+        RTPsocket = new DatagramSocket(RTP_RCV_PORT);
+
+        //set TimeOut value of the socket to 5msec.
+        timer.setDelay(5);
+
+      }
+      catch (SocketException se)
+      {
+        System.out.println("Socket exception: "+se);
+        System.exit(0);
+      }
+
+      //init RTSP sequence number
+      RTSPSeqNb = 1;
+
+      //Send SETUP message to the server
+      send_RTSP_request("SETUP");
+
+      //Wait for the response
+      if (parse_server_response() != 200)
+        System.out.println("Invalid Server Response");
+      else
+      {
+        //change RTSP state and print new state
+        state = READY;
+        System.out.println("New RTSP state: " + state );
+      }
+    }//else if state != INIT then do nothing
+  }
+
+
   //Handler for Play button
   //-----------------------
   class playButtonListener implements ActionListener {
     public void actionPerformed(ActionEvent e){
 
       System.out.println("Play Button pressed !");
-
+      if (state == INIT) {
+        setupConnection();
+      }
       if (state == READY)
       {
         //increase RTSP sequence number
@@ -306,10 +353,35 @@ public class Client{
         //stop the timer
         timer.stop();
 
-          //save csv results
-          save_csv_results();
-          //exit
+        //save csv results
+        save_csv_results();
+        //exit
         System.exit(0);
+      }
+    }
+  }
+  //------------------------------------
+  //Handler for Describe button
+  //------------------------------------
+
+  class describeButtonListener implements ActionListener {
+
+    public void actionPerformed(ActionEvent e) {
+      System.out.println("Sending DESCRIBE request");
+
+      //increase RTSP sequence number
+      RTSPSeqNb++;
+
+      //Send DESCRIBE message to the server
+      send_RTSP_request("DESCRIBE");
+
+      //Wait for the response
+      if (parse_server_response() != 200)
+      {
+        System.out.println("Invalid Server Response");
+      }
+      else {
+        System.out.println("Received response for DESCRIBE");
       }
     }
   }
@@ -326,17 +398,17 @@ public class Client{
       rcvdp = new DatagramPacket(buf, buf.length);
 
       try{
-          long datagram_start_time = System.currentTimeMillis();
+        long datagram_start_time = System.currentTimeMillis();
         //receive the DP from the socket:
         RTPsocket.receive(rcvdp);
         //create an RTPpacket object from the DP
         RTPpacket rtp_packet = new RTPpacket(rcvdp.getData(), rcvdp.getLength());
-          long datagram_end_time = System.currentTimeMillis();
-          int packet_length = rtp_packet.getlength();
-    
-          
-          long elapsedTime = datagram_end_time - datagram_start_time;
-          double bits_per_second = (8*packet_length) / ((double)elapsedTime / 1000.0f )  ;
+        long datagram_end_time = System.currentTimeMillis();
+        int packet_length = rtp_packet.getlength();
+
+
+        long elapsedTime = datagram_end_time - datagram_start_time;
+        double bits_per_second = (8*packet_length) / ((double)elapsedTime / 1000.0f )  ;
 
         // Calculate statistics about the session.
         int diff_time;
@@ -349,7 +421,7 @@ public class Client{
         }
         //int m_secs = diff_time % MSECS_PER_SEC;
         accum_packet_length += packet_length;
-          time_bits_second_tracker.put(diff_time, bits_per_second );
+        time_bits_second_tracker.put(diff_time, bits_per_second );
         time_data_tracker.put(diff_time, packet_length );
         accum_time_data_tracker.put(diff_time, accum_packet_length );
 
@@ -407,10 +479,20 @@ public class Client{
         String SessionLine = RTSPBufferedReader.readLine();
         System.out.println(SessionLine);
 
-        //if state == INIT gets the Session Id from the SessionLine
         tokens = new StringTokenizer(SessionLine);
-        tokens.nextToken(); //skip over the Session:
-        RTSPid = Integer.parseInt(tokens.nextToken());
+        String temp = tokens.nextToken();
+
+        //if state == INIT gets the Session Id from the SessionLine
+        if (state == INIT && temp.compareTo("Session:") == 0) {
+          RTSPid = tokens.nextToken();
+        }
+        else if (temp.compareTo("Content-Base:") == 0) {
+          String newLine;
+          for (int i = 0; i < 6; i++) {
+            newLine = RTSPBufferedReader.readLine();
+            System.out.println(newLine);
+          }
+        }
       }
     }
     catch(Exception ex)
@@ -455,6 +537,9 @@ public class Client{
       if (request_type.equals("SETUP")){
         RTSPBufferedWriter.write( "Transport: RTP/UDP; client_port= "+RTP_RCV_PORT+CRLF); 
       }
+      else if (request_type == "DESCRIBE") {
+        RTSPBufferedWriter.write("Accept: application/sdp" + CRLF);
+      }
       //otherwise, write the Session line from the RTSPid field
       else{
         RTSPBufferedWriter.write( "Session: " + RTSPid + CRLF );
@@ -470,11 +555,11 @@ public class Client{
 
   private void save_csv_results(){
 
-    
+
 
     try{
-        StringBuilder sb = new StringBuilder();
-        String savestr = "data_time.csv";
+      StringBuilder sb = new StringBuilder();
+      String savestr = "data_time.csv";
       File f = new File(savestr);
       PrintWriter out = null;
       out = new PrintWriter(savestr);
@@ -483,60 +568,60 @@ public class Client{
       sb.append("bytes");
       sb.append('\n');
       for (Map.Entry<Integer, Integer> entry : time_data_tracker.entrySet()){
-          sb.append(entry.getKey());
-          sb.append(',');
-          sb.append(entry.getValue());
-          sb.append('\n');
+        sb.append(entry.getKey());
+        sb.append(',');
+        sb.append(entry.getValue());
+        sb.append('\n');
       }
       out.write(sb.toString());
       out.close();
     } catch (FileNotFoundException e) {
     }
-      
-      
-      try{
-          StringBuilder sb1 = new StringBuilder();
-          String savestr1 = "accum_date_time.csv";
 
-          File f = new File(savestr1);
-          PrintWriter out1 = null;
-          out1 = new PrintWriter(savestr1);
-          sb1.append("ms");
-          sb1.append(',');
-          sb1.append("bytes");
-          sb1.append('\n');
-          for (Map.Entry<Integer, Integer> entry : accum_time_data_tracker.entrySet()){
-              sb1.append(entry.getKey());
-              sb1.append(',');
-              sb1.append(entry.getValue());
-              sb1.append('\n');
-          }
-          out1.write(sb1.toString());
-          out1.close();
-      } catch (FileNotFoundException e) {
+
+    try{
+      StringBuilder sb1 = new StringBuilder();
+      String savestr1 = "accum_date_time.csv";
+
+      File f = new File(savestr1);
+      PrintWriter out1 = null;
+      out1 = new PrintWriter(savestr1);
+      sb1.append("ms");
+      sb1.append(',');
+      sb1.append("bytes");
+      sb1.append('\n');
+      for (Map.Entry<Integer, Integer> entry : accum_time_data_tracker.entrySet()){
+        sb1.append(entry.getKey());
+        sb1.append(',');
+        sb1.append(entry.getValue());
+        sb1.append('\n');
       }
-      
-      try{
-          StringBuilder sb = new StringBuilder();
-          String savestr = "bits_per_sec.csv";
-          File f = new File(savestr);
-          PrintWriter out = null;
-          out = new PrintWriter(savestr);
-          sb.append("ms");
-          sb.append(',');
-          sb.append("bps");
-          sb.append('\n');
-          for (Map.Entry<Integer, Double> entry : time_bits_second_tracker.entrySet()){
-              sb.append(entry.getKey());
-              sb.append(',');
-              sb.append(entry.getValue());
-              sb.append('\n');
-          }
-          out.write(sb.toString());
-          out.close();
-      } catch (FileNotFoundException e) {
+      out1.write(sb1.toString());
+      out1.close();
+    } catch (FileNotFoundException e) {
+    }
+
+    try{
+      StringBuilder sb = new StringBuilder();
+      String savestr = "bits_per_sec.csv";
+      File f = new File(savestr);
+      PrintWriter out = null;
+      out = new PrintWriter(savestr);
+      sb.append("ms");
+      sb.append(',');
+      sb.append("bps");
+      sb.append('\n');
+      for (Map.Entry<Integer, Double> entry : time_bits_second_tracker.entrySet()){
+        sb.append(entry.getKey());
+        sb.append(',');
+        sb.append(entry.getValue());
+        sb.append('\n');
       }
-      
+      out.write(sb.toString());
+      out.close();
+    } catch (FileNotFoundException e) {
+    }
+
 
   }
 }//end of Class Client

@@ -80,15 +80,15 @@ public class RTPpacket{
 
     header[1] |= Marker << 7; 
     header[1] |= PayloadType;
-    
+
     header[2] |= SequenceNumber >> 8; 
     header[3] |= SequenceNumber & 0xFF;
-    
+
     header[4] |= TimeStamp >> 24; 
     header[5] |= TimeStamp >> 16;
     header[6] |= TimeStamp >> 8;
     header[7] |= TimeStamp & 0xFF;
-    
+
     header[8] |= Ssrc >> 24;
     header[9] |= Ssrc >> 16;
     header[10] |= Ssrc >> 8;
@@ -103,7 +103,6 @@ public class RTPpacket{
     for(int i=0;i<payload_size;i++){
       payload[i]=data[i];
     }
-
   }
 
   //--------------------------
@@ -119,7 +118,7 @@ public class RTPpacket{
     Marker = 0;
     Ssrc = 0;
 
-      header = new byte[HEADER_SIZE];
+    header = new byte[HEADER_SIZE];
     //check if total packet size is lower than the header size
     if (packet_size >= HEADER_SIZE)
     {
