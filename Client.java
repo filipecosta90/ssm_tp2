@@ -25,7 +25,6 @@ public class Client{
   JLabel iconLabel = new JLabel();
   ImageIcon icon;
 
-
   //RTP variables:
   //----------------
   DatagramPacket rcvdp; //UDP packet received from the server
@@ -35,6 +34,11 @@ public class Client{
   Timer timer; //timer used to receive data from the UDP socket
   byte[] buf; //buffer used to store data received from the server
 
+
+  Map<Integer, Integer> time_data_tracker;
+  Map<Integer, Integer> accum_time_data_tracker;
+    Map<Integer, Double>  time_bits_second_tracker;
+  int accum_packet_length; 
   //RTSP variables
   //----------------
   //rtsp states
@@ -55,6 +59,9 @@ public class Client{
   //Video constants:
   //------------------
   static int MJPEG_TYPE = 26; //RTP payload type for MJPEG video
+  private  long first_frame_time;
+  public static final int MSECS_PER_SEC = 1000;
+
 
   //--------------------------
   //Constructor
@@ -104,6 +111,11 @@ public class Client{
 
     //allocate enough memory for the buffer used to receive data from the server
     buf = new byte[15000];
+    time_data_tracker = new TreeMap<Integer, Integer>();
+    accum_time_data_tracker = new TreeMap<Integer, Integer>();
+      time_bits_second_tracker =  new TreeMap<Integer, Double>();
+    accum_packet_length = 0; 
+
   }
 
   //------------------------------------
@@ -294,7 +306,9 @@ public class Client{
         //stop the timer
         timer.stop();
 
-        //exit
+          //save csv results
+          save_csv_results();
+          //exit
         System.exit(0);
       }
     }
@@ -312,18 +326,39 @@ public class Client{
       rcvdp = new DatagramPacket(buf, buf.length);
 
       try{
+          long datagram_start_time = System.currentTimeMillis();
         //receive the DP from the socket:
         RTPsocket.receive(rcvdp);
-
         //create an RTPpacket object from the DP
         RTPpacket rtp_packet = new RTPpacket(rcvdp.getData(), rcvdp.getLength());
+          long datagram_end_time = System.currentTimeMillis();
+          int packet_length = rtp_packet.getlength();
+    
+          
+          long elapsedTime = datagram_end_time - datagram_start_time;
+          double bits_per_second = (8*packet_length) / ((double)elapsedTime / 1000.0f )  ;
+
+        // Calculate statistics about the session.
+        int diff_time;
+        if (first_frame_time == 0L) {
+          first_frame_time = System.currentTimeMillis();
+          diff_time = 0;
+        } else {
+          long current_frame_time = System.currentTimeMillis();
+          diff_time = (int) (current_frame_time - first_frame_time);
+        }
+        //int m_secs = diff_time % MSECS_PER_SEC;
+        accum_packet_length += packet_length;
+          time_bits_second_tracker.put(diff_time, bits_per_second );
+        time_data_tracker.put(diff_time, packet_length );
+        accum_time_data_tracker.put(diff_time, accum_packet_length );
 
         //print important header fields of the RTP packet received:
         System.out.println("Got RTP packet with SeqNum # "+rtp_packet.getsequencenumber()+" TimeStamp "+rtp_packet.gettimestamp()+" ms, of type "+rtp_packet.getpayloadtype());
 
         //print header bitstream:
         rtp_packet.printheader();
-
+        System.out.println("Length " + rtp_packet.getlength());
         //get the payload bitstream from the RTPpacket object
         int payload_length = rtp_packet.getpayload_length();
         byte [] payload = new byte[payload_length];
@@ -433,4 +468,75 @@ public class Client{
     }
   }
 
+  private void save_csv_results(){
+
+    
+
+    try{
+        StringBuilder sb = new StringBuilder();
+        String savestr = "data_time.csv";
+      File f = new File(savestr);
+      PrintWriter out = null;
+      out = new PrintWriter(savestr);
+      sb.append("ms");
+      sb.append(',');
+      sb.append("bytes");
+      sb.append('\n');
+      for (Map.Entry<Integer, Integer> entry : time_data_tracker.entrySet()){
+          sb.append(entry.getKey());
+          sb.append(',');
+          sb.append(entry.getValue());
+          sb.append('\n');
+      }
+      out.write(sb.toString());
+      out.close();
+    } catch (FileNotFoundException e) {
+    }
+      
+      
+      try{
+          StringBuilder sb1 = new StringBuilder();
+          String savestr1 = "accum_date_time.csv";
+
+          File f = new File(savestr1);
+          PrintWriter out1 = null;
+          out1 = new PrintWriter(savestr1);
+          sb1.append("ms");
+          sb1.append(',');
+          sb1.append("bytes");
+          sb1.append('\n');
+          for (Map.Entry<Integer, Integer> entry : accum_time_data_tracker.entrySet()){
+              sb1.append(entry.getKey());
+              sb1.append(',');
+              sb1.append(entry.getValue());
+              sb1.append('\n');
+          }
+          out1.write(sb1.toString());
+          out1.close();
+      } catch (FileNotFoundException e) {
+      }
+      
+      try{
+          StringBuilder sb = new StringBuilder();
+          String savestr = "bits_per_sec.csv";
+          File f = new File(savestr);
+          PrintWriter out = null;
+          out = new PrintWriter(savestr);
+          sb.append("ms");
+          sb.append(',');
+          sb.append("bps");
+          sb.append('\n');
+          for (Map.Entry<Integer, Double> entry : time_bits_second_tracker.entrySet()){
+              sb.append(entry.getKey());
+              sb.append(',');
+              sb.append(entry.getValue());
+              sb.append('\n');
+          }
+          out.write(sb.toString());
+          out.close();
+      } catch (FileNotFoundException e) {
+      }
+      
+
+  }
 }//end of Class Client

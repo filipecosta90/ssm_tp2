@@ -22,6 +22,8 @@ public class Server extends JFrame implements ActionListener {
   InetAddress ClientIPAddr; //Client IP address
   int RTP_dest_port = 0; //destination port for RTP packets  (given by the RTSP Client)
 
+  Map<Integer, Integer> packet_sent_tracker;
+
   //GUI:
   //----------------
   JLabel label;
@@ -75,6 +77,7 @@ public class Server extends JFrame implements ActionListener {
 
     //allocate memory for the sending buffer
     buf = new byte[15000];
+    packet_sent_tracker = new HashMap<Integer, Integer>();
 
     //Handler to close the main window
     addWindowListener(new WindowAdapter() {
@@ -201,13 +204,25 @@ public class Server extends JFrame implements ActionListener {
       try {
         //get next frame to send from the video, as well as its size
         int image_length = video.getnextframe(buf);
-        System.out.println("Image length " + image_length );
+        //System.out.println("Image length " + image_length );
         //Builds an RTPpacket object containing the frame
         RTPpacket rtp_packet = new RTPpacket(MJPEG_TYPE, imagenb, imagenb*FRAME_PERIOD, buf, image_length);
 
         //get to total length of the full rtp packet to send
         int packet_length = rtp_packet.getlength();
+        int seqn = rtp_packet.getsequencenumber();
+        
 
+        // Calculate statistics about the session
+        if ( packet_sent_tracker.containsKey( seqn ) ){
+          int n_transmissions = packet_sent_tracker.get( seqn );
+          n_transmissions++;
+          packet_sent_tracker.replace( seqn, n_transmissions);
+          System.out.println("Retransmission detected of packet");
+        }
+        else{
+          packet_sent_tracker.put(seqn, 1);
+        }
         //retrieve the packet bitstream and store it in an array of bytes
         byte[] packet_bits = new byte[packet_length];
         rtp_packet.getpacket(packet_bits);
@@ -218,7 +233,7 @@ public class Server extends JFrame implements ActionListener {
 
         //System.out.println("Send frame #"+imagenb);
         //print the header bitstream
-        rtp_packet.printheader();
+        //rtp_packet.printheader();
 
         //update GUI
         label.setText("Send frame #" + imagenb);

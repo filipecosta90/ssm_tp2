@@ -54,44 +54,45 @@ public class RTPpacket{
     //.............
     //fill the header array of byte with RTP header fields
 
-    byte[] time_bytes = new byte[4];
-    byte[] ssrc_bytes = new byte[4];
-    byte[] seqn_bytes = new byte[4];
-    time_bytes = int_to_byte_array(TimeStamp);
-   ssrc_bytes = int_to_byte_array(Ssrc);
-   seqn_bytes = int_to_byte_array(SequenceNumber);
-
-   /* 
-    * 0                     1                 2                   3
-    * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    * |V=2|P|X| CC |M| PT | sequence number |
-    * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    * | timestamp |
-    * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    * | synchronization source (SSRC) identifier |
-    * +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
-    * | contributing source (CSRC) identifiers |
-    * | .... |
-    * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    * 
-    * */
+    /* 
+     * 0                     1                 2                   3
+     * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+     * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     * |V=2|P|X| CC |M| PT | sequence number |
+     * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     * | timestamp |
+     * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     * | synchronization source (SSRC) identifier |
+     * +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+     * | contributing source (CSRC) identifiers |
+     * | .... |
+     * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     * 
+     * */
+    // bits 0 and 1
     header[0] |= (Version << 6);
+    // bit 2
     header[0] |= (Padding << 5);
+    // bit 3
     header[0] |= (Extension << 4);
+    // bits 4 to 7
     header[0] |= (CC);
+
     header[1] |= Marker << 7; 
     header[1] |= PayloadType;
-    header[2] = seqn_bytes[1];
-    header[3] = seqn_bytes[0];
-    header[4] = time_bytes[3];
-    header[5] = time_bytes[2];
-    header[6] = time_bytes[1];
-    header[7] = time_bytes[0];
-    header[8] = ssrc_bytes[3];
-    header[9] = ssrc_bytes[2];
-    header[10] = ssrc_bytes[1];
-    header[11] = ssrc_bytes[0];
+    
+    header[2] |= SequenceNumber >> 8; 
+    header[3] |= SequenceNumber & 0xFF;
+    
+    header[4] |= TimeStamp >> 24; 
+    header[5] |= TimeStamp >> 16;
+    header[6] |= TimeStamp >> 8;
+    header[7] |= TimeStamp & 0xFF;
+    
+    header[8] |= Ssrc >> 24;
+    header[9] |= Ssrc >> 16;
+    header[10] |= Ssrc >> 8;
+    header[11] |= Ssrc & 0xFF;
 
     //fill the payload bitstream:
     //--------------------------
@@ -102,8 +103,6 @@ public class RTPpacket{
     for(int i=0;i<payload_size;i++){
       payload[i]=data[i];
     }
-
-    // ! Do not forget to uncomment method printheader() below !
 
   }
 
@@ -120,11 +119,11 @@ public class RTPpacket{
     Marker = 0;
     Ssrc = 0;
 
+      header = new byte[HEADER_SIZE];
     //check if total packet size is lower than the header size
     if (packet_size >= HEADER_SIZE)
     {
       //get the header bitsream:
-      header = new byte[HEADER_SIZE];
       for (int i=0; i < HEADER_SIZE; i++)
         header[i] = packet[i];
 
@@ -227,16 +226,5 @@ public class RTPpacket{
       return(nb);
     else
       return(256+nb);
-  }
-
-  public static byte[] int_to_byte_array(int number){
-    int temp = number;
-    byte[] b=new byte[4];
-    for (int i = b.length - 1; i > -1; i--)
-    {
-      b[i] = new Integer(temp & 0xff).byteValue();
-      temp = temp >> 8;
-    }
-    return b;
   }
 }
